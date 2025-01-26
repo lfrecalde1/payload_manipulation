@@ -277,7 +277,7 @@ def controller_setup(x0, N_horizon, t_horizon, ts):
     # Constraints for payload and quadrotors
     quadrotor_pos = quad_position_f(x_array, u_aaray)
     ## Nonlinear constraints
-    obstacle = ca.veccat(1.04, -1.57, 5.32)
+    obstacle = ca.veccat(1.35, -1.34, 5.39)
     obstacles_quadrotor_diff = obstacle - quadrotor_pos
     quadrotor_12 = quadrotor_pos[:, 0] - quadrotor_pos[:, 1] 
     quadrotor_23 = quadrotor_pos[:, 1] - quadrotor_pos[:, 2] 

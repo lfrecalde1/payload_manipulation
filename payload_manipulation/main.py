@@ -75,6 +75,10 @@ class DQnmpcNode(Node):
         self.points = None
         self.publisher_ref_trajectory_ = self.create_publisher(Marker, 'desired_path', 10)
 
+        self.marker_msg_real = Marker()
+        self.points_real = None
+        self.publisher_real_trajectory_ = self.create_publisher(Marker, 'real_path', 10)
+
         # Definition of the prediction time in secs
         self.t_N = 0.5
 
@@ -179,6 +183,27 @@ class DQnmpcNode(Node):
         self.points = [point]
         self.marker_msg.points = self.points
         return None
+        
+    def init_real_marker(self, x):
+        self.marker_msg_real.header.frame_id = "world"
+        self.marker_msg_real.header.stamp = self.get_clock().now().to_msg()
+        self.marker_msg_real.ns = "trajectory"
+        self.marker_msg_real.id = 0
+        self.marker_msg_real.type = Marker.LINE_STRIP
+        self.marker_msg_real.action = Marker.ADD
+        self.marker_msg_real.pose.orientation.w = 1.0
+        self.marker_msg_real.scale.x = 0.01  # Line width
+        self.marker_msg_real.color.a = 1.0  # Alpha
+        self.marker_msg_real.color.r = 0.0  # Red
+        self.marker_msg_real.color.g = 0.0  # Green
+        self.marker_msg_real.color.b = 1.0  # Blue
+        point = Point()
+        point.x = x[0]
+        point.y = x[1]
+        point.z = x[2]
+        self.points_real = [point]
+        self.marker_msg_real.points = self.points_real
+        return None
 
     def send_marker(self, x):
         self.marker_msg.header.stamp = self.get_clock().now().to_msg()
@@ -191,6 +216,19 @@ class DQnmpcNode(Node):
         self.points.append(point)
         self.marker_msg.points = self.points
         self.publisher_ref_trajectory_.publish(self.marker_msg)
+        return None
+
+    def send_real_marker(self, x):
+        self.marker_msg_real.header.stamp = self.get_clock().now().to_msg()
+        self.marker_msg_real.type = Marker.LINE_STRIP
+        self.marker_msg_real.action = Marker.ADD
+        point = Point()
+        point.x = x[0]
+        point.y = x[1]
+        point.z = x[2]
+        self.points_real.append(point)
+        self.marker_msg_real.points = self.points_real
+        self.publisher_real_trajectory_.publish(self.marker_msg_real)
         return None
 
     def run(self):
@@ -208,8 +246,8 @@ class DQnmpcNode(Node):
         json_name = "acados_ocp_" + ocp.model.name + ".json"
         json_name_sim = "acados_sim_" + ocp.model.name + ".json"
         
-        acados_ocp_solver = AcadosOcpSolver(ocp, json_file=json_name, build= True, generate= True)
-        acados_integrator = AcadosSimSolver(ocp, json_file=json_name_sim, build= True, generate= True)
+        acados_ocp_solver = AcadosOcpSolver(ocp, json_file=json_name, build= False, generate= False)
+        acados_integrator = AcadosSimSolver(ocp, json_file=json_name_sim, build= False, generate= False)
 
         # Reset Solver
         acados_ocp_solver.reset()
@@ -223,6 +261,7 @@ class DQnmpcNode(Node):
 
         # Init Markers
         self.init_marker(self.x_d[:, 0])
+        self.init_real_marker(self.x[0:3, 0])
 
         # Simulation loop
         for k in range(0, self.t.shape[0] - self.N_prediction):
@@ -230,6 +269,8 @@ class DQnmpcNode(Node):
             tic = time.time()
              # Send Desired States
             self.send_marker(self.x_d[:, k])
+            self.send_real_marker(self.x[0:3, k])
+
             self.send_ref(self.x_d[:, k], np.array([1.0, 0.0, 0.0, 0.0]))
             self.send_odometry(self.x[0:3, k], self.x[6:10, k])
             
